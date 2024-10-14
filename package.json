@@ -6,8 +6,11 @@
     "dev": "bun run --watch src/index.ts"
   },
   "dependencies": {
+    "@elysiajs/cors": "^1.1.1",
     "ais-bun": "file:",
-    "elysia": "latest"
+    "dotenv": "^16.4.5",
+    "elysia": "latest",
+    "mysql2": "^3.11.3"
   },
   "devDependencies": {
     "bun-types": "latest"
