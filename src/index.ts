@@ -6,7 +6,7 @@ import { cors } from '@elysiajs/cors'
 dotenv.config();
 
 const corsOptions = {
-  origin: ["https://cport.pernika.net", "http://localhost:3006"],
+  origin: ["*"],
   optionsSuccessStatus: 200,
   credentials: true,
 }
