@@ -35,6 +35,8 @@ const app = new Elysia()
       params // Include params in query execution
     );
 
+    await connection.end();
+
     set.headers = { 'Content-Type': 'application/json' }; // Set response header
     return {
       message: "Data retrieved successfully",
@@ -43,9 +45,8 @@ const app = new Elysia()
     }; // Return message, code, and data
   })
   .use(cors())
-  .listen(3008, async () => {
-    console.log(
-      `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
-    );
-    await connection.end(); // Close the connection when the server starts
-  });
+  .listen(3008);
+
+console.log(
+  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
+);
