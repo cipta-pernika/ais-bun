@@ -6,9 +6,7 @@ import { cors } from '@elysiajs/cors'
 dotenv.config();
 
 const corsOptions = {
-  origin: true,
-  optionsSuccessStatus: 200,
-  credentials: true,
+  origin: 'http://localhost:3006',
 }
 
 const app = new Elysia()
