@@ -5,15 +5,15 @@ import { cors } from '@elysiajs/cors'
 
 dotenv.config();
 
-const connection = await mysql.createConnection({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : undefined,
-  user: process.env.DB_USERNAME,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_DATABASE
-});
 const app = new Elysia()
-  .get("/", async ({ query, set }) => { // Destructure query and set from the request object
+  .get("/", async ({ query, set }) => {
+    const connection = await mysql.createConnection({
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : undefined,
+      user: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_DATABASE
+    });
     const { mmsi, vessel_name } = query;
     const page = parseInt(query?.page || '1'); // Use destructured query
     const limit = parseInt(query?.limit || '10'); // Use destructured query
