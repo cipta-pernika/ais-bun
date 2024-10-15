@@ -5,6 +5,12 @@ import { cors } from '@elysiajs/cors'
 
 dotenv.config();
 
+const corsOptions = {
+  origin: ["https://cport.pernika.net", "http://localhost:3006"],
+  optionsSuccessStatus: 200,
+  credentials: true,
+}
+
 const app = new Elysia()
   .get("/", async ({ query, set }) => {
     const connection = await mysql.createConnection({
@@ -15,8 +21,8 @@ const app = new Elysia()
       database: process.env.DB_DATABASE
     });
     const { mmsi, vessel_name } = query;
-    const page = parseInt(query?.page || '1'); // Use destructured query
-    const limit = parseInt(query?.limit || '10'); // Use destructured query
+    const page = parseInt(query?.page || '1');
+    const limit = parseInt(query?.limit || '10');
     const offset = (page - 1) * limit;
 
     let searchQuery = '';
@@ -32,19 +38,19 @@ const app = new Elysia()
 
     const [rows] = await connection.execute(
       `SELECT * FROM ais_data_vessels ${searchQuery} LIMIT ? OFFSET ?`,
-      params // Include params in query execution
+      params
     );
 
     await connection.end();
 
-    set.headers = { 'Content-Type': 'application/json' }; // Set response header
+    set.headers = { 'Content-Type': 'application/json' };
     return {
       message: "Data retrieved successfully",
       code: 200,
       data: rows
-    }; // Return message, code, and data
+    };
   })
-  .use(cors())
+  .use(cors(corsOptions))
   .listen(3008);
 
 console.log(
