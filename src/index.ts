@@ -14,16 +14,26 @@ const connection = await mysql.createConnection({
 });
 const app = new Elysia()
   .get("/", async ({ query, set }) => { // Destructure query and set from the request object
+    const { mmsi, vessel_name } = query;
     const page = parseInt(query?.page || '1'); // Use destructured query
     const limit = parseInt(query?.limit || '10'); // Use destructured query
     const offset = (page - 1) * limit;
 
-    const [rows] = await connection.execute(
-      'SELECT * FROM ais_data_vessels LIMIT ? OFFSET ?',
-      [limit.toString(), offset.toString()] // Convert limit and offset to strings
-    );
+    let searchQuery = '';
+    let params = [limit.toString(), offset.toString()];
 
-    console.log(rows);
+    if (mmsi) {
+      searchQuery = 'WHERE mmsi = ?';
+      params.unshift(mmsi);
+    } else if (vessel_name) {
+      searchQuery = 'WHERE vessel_name LIKE ?';
+      params.unshift(`%${vessel_name}%`);
+    }
+
+    const [rows] = await connection.execute(
+      `SELECT * FROM ais_data_vessels ${searchQuery} LIMIT ? OFFSET ?`,
+      params // Include params in query execution
+    );
 
     set.headers = { 'Content-Type': 'application/json' }; // Set response header
     return {
