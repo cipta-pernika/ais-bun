@@ -6,7 +6,7 @@ import { cors } from '@elysiajs/cors'
 dotenv.config();
 
 const corsOptions = {
-  origin: ["*"],
+  origin: true,
   optionsSuccessStatus: 200,
   credentials: true,
 }
