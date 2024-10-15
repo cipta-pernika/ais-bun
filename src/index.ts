@@ -43,8 +43,9 @@ const app = new Elysia()
     }; // Return message, code, and data
   })
   .use(cors())
-  .listen(3008);
-
-console.log(
-  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
-);
+  .listen(3008, async () => {
+    console.log(
+      `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
+    );
+    await connection.end(); // Close the connection when the server starts
+  });
