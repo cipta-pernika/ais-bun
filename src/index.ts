@@ -5,18 +5,22 @@ import { cors } from '@elysiajs/cors'
 
 dotenv.config();
 
-const connection = await mysql.createConnection({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : undefined,
-  user: process.env.DB_USERNAME,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_DATABASE
-});
+const corsOptions = {
+  origin: 'http://localhost:3006',
+}
+
 const app = new Elysia()
-  .get("/", async ({ query, set }) => { // Destructure query and set from the request object
+  .get("/", async ({ query, set }) => {
+    const connection = await mysql.createConnection({
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : undefined,
+      user: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_DATABASE
+    });
     const { mmsi, vessel_name } = query;
-    const page = parseInt(query?.page || '1'); // Use destructured query
-    const limit = parseInt(query?.limit || '10'); // Use destructured query
+    const page = parseInt(query?.page || '1');
+    const limit = parseInt(query?.limit || '10');
     const offset = (page - 1) * limit;
 
     let searchQuery = '';
@@ -32,17 +36,19 @@ const app = new Elysia()
 
     const [rows] = await connection.execute(
       `SELECT * FROM ais_data_vessels ${searchQuery} LIMIT ? OFFSET ?`,
-      params // Include params in query execution
+      params
     );
 
-    set.headers = { 'Content-Type': 'application/json' }; // Set response header
+    await connection.end();
+
+    set.headers = { 'Content-Type': 'application/json' };
     return {
       message: "Data retrieved successfully",
       code: 200,
       data: rows
-    }; // Return message, code, and data
+    };
   })
-  .use(cors())
+  .use(cors(corsOptions))
   .listen(3008);
 
 console.log(
