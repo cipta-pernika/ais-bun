@@ -65,15 +65,20 @@ const app = new Elysia()
     let params = [limit.toString(), offset.toString()];
 
     if (mmsi) {
-      searchQuery = 'WHERE mmsi = ?';
+      searchQuery = 'WHERE v.mmsi = ?';
       params.unshift(mmsi);
     } else if (vessel_name) {
-      searchQuery = 'WHERE vessel_name LIKE ?';
+      searchQuery = 'WHERE v.vessel_name LIKE ?';
       params.unshift(`%${vessel_name}%`);
     }
 
     const [rows] = await connection.execute(
-      `SELECT * FROM ais_data_positions ${searchQuery} LIMIT ? OFFSET ?`,
+      `SELECT p.*, v.vessel_name, v.mmsi
+       FROM ais_data_positions p
+       JOIN ais_data_vessels v ON p.vessel_id = v.id
+       ${searchQuery}
+       ORDER BY p.timestamp DESC
+       LIMIT ? OFFSET ?`,
       params
     );
 
