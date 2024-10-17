@@ -65,10 +65,10 @@ const app = new Elysia()
     let params = [limit.toString(), offset.toString()];
 
     if (mmsi) {
-      searchQuery = 'WHERE v.mmsi = ?';
+      searchQuery = 'WHERE mmsi = ?';
       params.unshift(mmsi);
     } else if (vessel_name) {
-      searchQuery = 'WHERE v.vessel_name LIKE ?';
+      searchQuery = 'WHERE vessel_name LIKE ?';
       params.unshift(`%${vessel_name}%`);
     }
 
