@@ -90,6 +90,39 @@ const app = new Elysia()
       data: rows
     };
   })
+  .get('/api/tersus', async ({ query, set }) => {
+    const connection = await mysql.createConnection({
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : undefined,
+      user: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_DATABASE
+    });
+
+    const { name } = query;
+
+    let searchQuery = '';
+    let params = [];
+
+    if (name) {
+      searchQuery = 'WHERE name LIKE ?';
+      params.unshift(`%${name}%`);
+    }
+
+    const [rows] = await connection.execute(
+      `SELECT * FROM terminals ${searchQuery}`,
+      params
+    );
+
+    await connection.end();
+
+    set.headers = { 'Content-Type': 'application/json' };
+    return {
+      message: "Data retrieved successfully",
+      code: 200,
+      data: rows
+    };
+  })
   .use(cors(corsOptions))
   .listen(3008);
 
