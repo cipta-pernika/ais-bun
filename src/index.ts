@@ -90,6 +90,30 @@ const app = new Elysia()
     set.headers = { 'Content-Type': 'application/json' };
     return { message: "Data retrieved successfully", code: 200, data: rows };
   })
+  .get('api/cctvs', async ({ query, set }) => {
+    const connection = await createDbConnection();
+    const { terminal_id } = query;
+
+    let sql = 'SELECT * FROM cctvs';
+    let params = [];
+
+    if (terminal_id) {
+      const ids = terminal_id.split(',').map(id => parseInt(id.trim()));
+      sql += ' WHERE terminal_id IN (?)';
+      params.push(ids);
+    }
+
+    const [rows] = await connection.execute(sql, params);
+
+    await connection.end();
+
+    set.headers = { 'Content-Type': 'application/json' };
+    return { message: "Data retrieved successfully", code: 200, data: rows };
+  
+   
+    
+    
+  })
   .use(cors(corsOptions))
   .listen(3008);
 
