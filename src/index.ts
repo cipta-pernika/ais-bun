@@ -73,11 +73,10 @@ const app = new Elysia()
     }
 
     const [rows] = await connection.execute(
-      `SELECT p.*, v.vessel_name, v.mmsi
-       FROM ais_data_positions p
-       JOIN ais_data_vessels v ON p.vessel_id = v.id
+      `SELECT *
+       FROM recent_vessels_positions
        ${searchQuery}
-       ORDER BY p.timestamp DESC
+       ORDER BY created_at DESC
        LIMIT ? OFFSET ?`,
       params
     );
