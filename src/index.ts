@@ -2,6 +2,7 @@ import { Elysia } from "elysia";
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 import { cors } from '@elysiajs/cors'
+import pg from 'pg';
 
 dotenv.config();
 
@@ -11,13 +12,24 @@ const corsOptions = {
 
 // Function to create a database connection
 const createDbConnection = async () => {
-  return await mysql.createConnection({
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : undefined,
-    user: process.env.DB_USERNAME,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_DATABASE
-  });
+  if (process.env.DB_CONNECTION === 'pgsql') {
+    const pool = new pg.Pool({
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : undefined,
+      user: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_DATABASE
+    });
+    return pool;
+  } else {
+    return await mysql.createConnection({
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : undefined,
+      user: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_DATABASE
+    });
+  }
 };
 
 // Function to handle common query logic
@@ -38,17 +50,35 @@ const handleQuery = (query: any, searchField: string) => {
   return { searchQuery, params, limit, offset };
 };
 
+// Function to execute query based on connection type
+const executeQuery = async (connection: any, sql: string, params: any[]) => {
+  if (process.env.DB_CONNECTION === 'pgsql') {
+    // PostgreSQL uses $1, $2, etc. for parameterized queries
+    const parameterizedSql = sql.replace(/\?/g, (_, i) => `$${i + 1}`);
+    const result = await connection.query(parameterizedSql, params);
+    return [result.rows];
+  } else {
+    // MySQL
+    return await connection.execute(sql, params);
+  }
+};
+
 const app = new Elysia()
   .get("/", async ({ query, set }) => {
     const connection = await createDbConnection();
     const { searchQuery, params } = handleQuery(query, 'mmsi');
 
-    const [rows] = await connection.execute(
+    const [rows] = await executeQuery(
+      connection,
       `SELECT * FROM ais_data_vessels ${searchQuery} LIMIT ? OFFSET ?`,
       params
     );
 
-    await connection.end();
+    if (process.env.DB_CONNECTION === 'pgsql') {
+      await connection.end();
+    } else {
+      await connection.end();
+    }
 
     set.headers = { 'Content-Type': 'application/json' };
     return { message: "Data retrieved successfully", code: 200, data: rows };
@@ -57,7 +87,8 @@ const app = new Elysia()
     const connection = await createDbConnection();
     const { searchQuery, params } = handleQuery(query, 'mmsi');
 
-    const [rows] = await connection.execute(
+    const [rows] = await executeQuery(
+      connection,
       `SELECT *
        FROM recent_vessels_positions
        ${searchQuery}
@@ -66,7 +97,11 @@ const app = new Elysia()
       params
     );
 
-    await connection.end();
+    if (process.env.DB_CONNECTION === 'pgsql') {
+      await connection.end();
+    } else {
+      await connection.end();
+    }
 
     set.headers = { 'Content-Type': 'application/json' };
     return { message: "Data retrieved successfully", code: 200, data: rows };
@@ -83,14 +118,18 @@ const app = new Elysia()
       params.push(`%${name}%`);
     }
 
-    const [rows] = await connection.execute(sql, params);
+    const [rows] = await executeQuery(connection, sql, params);
 
-    await connection.end();
+    if (process.env.DB_CONNECTION === 'pgsql') {
+      await connection.end();
+    } else {
+      await connection.end();
+    }
 
     set.headers = { 'Content-Type': 'application/json' };
     return { message: "Data retrieved successfully", code: 200, data: rows };
   })
-  .get('api/cctvs', async ({ query, set }) => {
+  .get('/api/cctvs', async ({ query, set }) => {
     const connection = await createDbConnection();
     const { terminal_id } = query;
 
@@ -99,20 +138,24 @@ const app = new Elysia()
 
     if (terminal_id) {
       const ids = terminal_id.split(',').map(id => parseInt(id.trim()));
-      sql += ' WHERE terminal_id IN (?)';
+      if (process.env.DB_CONNECTION === 'pgsql') {
+        sql += ' WHERE terminal_id = ANY($1::int[])';
+      } else {
+        sql += ' WHERE terminal_id IN (?)';
+      }
       params.push(ids);
     }
 
-    const [rows] = await connection.execute(sql, params);
+    const [rows] = await executeQuery(connection, sql, params);
 
-    await connection.end();
+    if (process.env.DB_CONNECTION === 'pgsql') {
+      await connection.end();
+    } else {
+      await connection.end();
+    }
 
     set.headers = { 'Content-Type': 'application/json' };
     return { message: "Data retrieved successfully", code: 200, data: rows };
-  
-   
-    
-    
   })
   .use(cors(corsOptions))
   .listen(3008);
