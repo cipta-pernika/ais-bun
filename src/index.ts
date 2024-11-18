@@ -157,6 +157,30 @@ const app = new Elysia()
     set.headers = { 'Content-Type': 'application/json' };
     return { message: "Data retrieved successfully", code: 200, data: rows };
   })
+  .get('/api/getTotalKapalDaily', async ({ query, set }) => {
+    const connection = await createDbConnection();
+    // Default to today's date if no date is provided
+    const queryDate = query.date || new Date().toISOString().split('T')[0];
+
+    let sql = `
+      SELECT COUNT(DISTINCT adv.mmsi) as total_kapal
+      FROM ais_data_positions adp
+      INNER JOIN ais_data_vessels adv ON adp.vessel_id = adv.id
+      WHERE DATE(adp.created_at) = ?`;
+    
+    let params = [queryDate];
+
+    const [rows] = await executeQuery(connection, sql, params);
+
+    if (process.env.DB_CONNECTION === 'pgsql') {
+      await connection.end();
+    } else {
+      await connection.end();
+    }
+
+    set.headers = { 'Content-Type': 'application/json' };
+    return { message: "Data retrieved successfully", code: 200, data: rows };
+  })
   .use(cors(corsOptions))
   .listen(3008);
 
