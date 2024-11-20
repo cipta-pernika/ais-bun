@@ -238,37 +238,8 @@ const app = new Elysia()
     const { before, after } = query;
 
     try {
-      // First, authenticate with the login API
-      const loginResponse = await fetch('https://frigatebau.pernika.net/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          user: "appdev",
-          password: "appDEV1234"
-        })
-      });
-
-      // Log login response details
-      console.log('Login Response Status:', loginResponse.status);
-      const loginResponseText = await loginResponse.text();
-      console.log('Login Response Body:', loginResponseText);
-
-      if (!loginResponse.ok) {
-        throw new Error(`Login failed with status: ${loginResponse.status}, Response: ${loginResponseText}`);
-      }
-
-      // Parse login response after logging
-      const loginData = JSON.parse(loginResponseText);
-      
-      // Use the token from login response for the review API
       const frigateUrl = `https://frigatebau.pernika.net/api/review?reviewed=1&before=${before || ''}&after=${after || ''}`;
-      const response = await fetch(frigateUrl, {
-        headers: {
-          'Authorization': `Bearer ${loginData.token}`
-        }
-      });
+      const response = await fetch(frigateUrl);
       
       // Check if the response is ok
       if (!response.ok) {
