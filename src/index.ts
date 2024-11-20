@@ -240,7 +240,23 @@ const app = new Elysia()
     try {
       const frigateUrl = `https://frigatebau.pernika.net/api/review?reviewed=1&before=${before || ''}&after=${after || ''}`;
       const response = await fetch(frigateUrl);
-      const data = await response.json();
+      
+      // Check if the response is ok
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      // Get the response text first
+      const text = await response.text();
+      
+      // Try to parse the JSON, if it fails we'll have the text to debug
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseError: unknown) {
+        console.error('Failed to parse response:', text);
+        throw new Error(`JSON parse error: ${(parseError as Error).message}`);
+      }
 
       if (process.env.DB_CONNECTION === 'pgsql') {
         await connection.end();
@@ -251,11 +267,14 @@ const app = new Elysia()
       set.headers = { 'Content-Type': 'application/json' };
       return { message: "Data retrieved successfully", code: 200, data };
     } catch (error) {
+      console.error('Frigate API error:', error);
       set.status = 500;
       return { 
         message: "Error fetching data from Frigate API",
         code: 500,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        // Include the URL that failed (without sensitive data if any)
+        url: 'frigatebau.pernika.net/api/review'
       };
     }
   })
