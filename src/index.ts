@@ -250,11 +250,17 @@ const app = new Elysia()
         })
       });
 
+      // Log login response details
+      console.log('Login Response Status:', loginResponse.status);
+      const loginResponseText = await loginResponse.text();
+      console.log('Login Response Body:', loginResponseText);
+
       if (!loginResponse.ok) {
-        throw new Error(`Login failed with status: ${loginResponse.status}`);
+        throw new Error(`Login failed with status: ${loginResponse.status}, Response: ${loginResponseText}`);
       }
 
-      const loginData = await loginResponse.json();
+      // Parse login response after logging
+      const loginData = JSON.parse(loginResponseText);
       
       // Use the token from login response for the review API
       const frigateUrl = `https://frigatebau.pernika.net/api/review?reviewed=1&before=${before || ''}&after=${after || ''}`;
