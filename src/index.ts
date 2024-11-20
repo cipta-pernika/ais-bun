@@ -3,6 +3,7 @@ import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 import { cors } from '@elysiajs/cors'
 import pg from 'pg';
+import fetch from 'node-fetch';
 
 dotenv.config();
 
@@ -180,6 +181,57 @@ const app = new Elysia()
 
     set.headers = { 'Content-Type': 'application/json' };
     return { message: "Data retrieved successfully", code: 200, data: rows };
+  })
+  .get('/api/summaryTotalKapal', async ({ query, set }) => {
+    const connection = await createDbConnection();
+    const { date } = query;
+
+    // Get all locations
+    const [locations] = await executeQuery(
+      connection,
+      'SELECT initial_name FROM locations',
+      []
+    );
+
+    // Fetch data from each location
+    const fetchPromises = locations.map(async (location: { initial_name: string }) => {
+      try {
+        const url = `https://bebun${location.initial_name.toLowerCase()}.cakrawala.id/api/getTotalKapalDaily${date ? `?date=${date}` : ''}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        return {
+          location: location.initial_name,
+          total_kapal: data.data[0]?.total_kapal || 0
+        };
+      } catch (error) {
+        console.error(`Error fetching data for ${location.initial_name}:`, error);
+        return {
+          location: location.initial_name,
+          total_kapal: 0
+        };
+      }
+    });
+
+    const locationData = await Promise.all(fetchPromises);
+
+    // Calculate total across all locations
+    const totalKapal = locationData.reduce((sum, item) => sum + item.total_kapal, 0);
+
+    if (process.env.DB_CONNECTION === 'pgsql') {
+      await connection.end();
+    } else {
+      await connection.end();
+    }
+
+    set.headers = { 'Content-Type': 'application/json' };
+    return { 
+      message: "Data retrieved successfully", 
+      code: 200, 
+      data: {
+        total_kapal: totalKapal,
+        details: locationData
+      }
+    };
   })
   .use(cors(corsOptions))
   .listen(3008);
