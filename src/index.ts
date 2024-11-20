@@ -233,6 +233,32 @@ const app = new Elysia()
       }
     };
   })
+  .get('/api/frigate', async ({ query, set }) => {
+    const connection = await createDbConnection();
+    const { before, after } = query;
+
+    try {
+      const frigateUrl = `https://frigatebau.pernika.net/api/review?reviewed=1&before=${before || ''}&after=${after || ''}`;
+      const response = await fetch(frigateUrl);
+      const data = await response.json();
+
+      if (process.env.DB_CONNECTION === 'pgsql') {
+        await connection.end();
+      } else {
+        await connection.end();
+      }
+
+      set.headers = { 'Content-Type': 'application/json' };
+      return { message: "Data retrieved successfully", code: 200, data };
+    } catch (error) {
+      set.status = 500;
+      return { 
+        message: "Error fetching data from Frigate API",
+        code: 500,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  })
   .use(cors(corsOptions))
   .listen(3008);
 
