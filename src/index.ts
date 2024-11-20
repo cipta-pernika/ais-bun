@@ -278,6 +278,46 @@ const app = new Elysia()
       };
     }
   })
+  .get('/api/frigatevod', async ({ query, set }) => {
+    const connection = await createDbConnection();
+    const { start, end } = query;
+
+    try {
+      const frigateUrl = `https://frigatebau.pernika.net/vod/static64/start/${start}/end/${end}/master.m3u8`;
+      const response = await fetch(frigateUrl);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.text();
+
+      if (process.env.DB_CONNECTION === 'pgsql') {
+        await connection.end();
+      } else {
+        await connection.end();
+      }
+
+      set.headers = { 'Content-Type': 'application/json' };
+      return { 
+        message: "Video data retrieved successfully", 
+        code: 200, 
+        data: {
+          url: frigateUrl,
+          content: data
+        }
+      };
+    } catch (error) {
+      console.error('Frigate VOD API error:', error);
+      set.status = 500;
+      return { 
+        message: "Error fetching video data from Frigate API",
+        code: 500,
+        error: error instanceof Error ? error.message : String(error),
+        url: 'frigatebau.pernika.net/vod'
+      };
+    }
+  })
   .use(cors(corsOptions))
   .listen(3008);
 
