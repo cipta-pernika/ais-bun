@@ -94,11 +94,11 @@ const moveCamera = async (direction: { pan: number, tilt?: number }, set: any) =
     myHeaders.append("Cache-Control", "max-age=0");
     myHeaders.append("Connection", "keep-alive");
     myHeaders.append("Content-Type", "application/xml; charset=UTF-8");
-    myHeaders.append("Cookie", "live_port=3002; user=admin; V2_Session_331a1bf7=06hklv8p67QXveJ0FM91FW9MeMFhN2Aa");
-    myHeaders.append("HttpSession", "06hklv8p67QXveJ0FM91FW9MeMFhN2Aa");
+    myHeaders.append("Cookie", "live_port=3002; user=admin; V2_Session_331a1bf7=054o6c9fdTGqdsKgEBvtp6X1qAnRtAY8");
+    myHeaders.append("HttpSession", "054o6c9fdTGqdsKgEBvtp6X1qAnRtAY8");
     myHeaders.append("If-Modified-Since", "0");
     myHeaders.append("Origin", "http://192.168.18.65");
-    myHeaders.append("Referer", "http://192.168.18.65/?t=9612958877");
+    myHeaders.append("Referer", "http://192.168.18.65/?t=8216619344");
     myHeaders.append("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
     myHeaders.append("X-Requested-With", "XMLHttpRequest");
 
@@ -123,11 +123,13 @@ const moveCamera = async (direction: { pan: number, tilt?: number }, set: any) =
     }
 
     const stopXmlData = '<PTZData><pan>0</pan><tilt>0</tilt><zoom/></PTZData>';
-    await fetch(url, {
-      method: 'PUT',
+    setTimeout(async () => {
+      await fetch(url, {
+        method: 'PUT',
       headers: myHeaders,
-      body: stopXmlData
-    });
+        body: stopXmlData
+      });
+    }, 500);
   } else {
     set.status = 400;
     return { success: false, message: 'Kamera tidak ditemukan atau tidak didukung.' };
