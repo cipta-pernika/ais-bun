@@ -306,6 +306,81 @@ const app = new Elysia()
   .post('/api/camleftdown', async ({ set }) => {
     return await moveCamera({ pan: -20, tilt: -20 }, set);
   })
+  .get('/api/getTotalKegiatan', async ({ query, set }) => {
+    const connection = await createDbConnection();
+    // Default to today's date if no date is provided
+    const queryDate = query.date || new Date().toISOString().split('T')[0];
+
+    let sql = `
+      SELECT COUNT(DISTINCT gi.mmsi) as total_kegiatan
+      FROM geofence_images gi
+      INNER JOIN ais_data_vessels adv ON gi.mmsi = adv.mmsi
+      WHERE DATE(gi.created_at) = ?`;
+    
+    let params = [queryDate];
+
+    const [rows] = await executeQuery(connection, sql, params);
+
+    if (process.env.DB_CONNECTION === 'pgsql') {
+      await connection.end();
+    } else {
+      await connection.end();
+    }
+
+    set.headers = { 'Content-Type': 'application/json' };
+    return { message: "Data retrieved successfully", code: 200, data: rows };
+  })
+  .get('/api/summaryTotalKegiatan', async ({ query, set }) => {
+    const connection = await createDbConnection();
+    const { date } = query;
+
+    // Get all locations
+    const [locations] = await executeQuery(
+      connection,
+      'SELECT initial_name FROM locations',
+      []
+    );
+
+    // Fetch data from each location
+    const fetchPromises = locations.map(async (location: { initial_name: string }) => {
+      try {
+        const url = `https://bebun${location.initial_name.toLowerCase()}.cakrawala.id/api/getTotalKegiatan${date ? `?date=${date}` : ''}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        return {
+          location: location.initial_name,
+          total_kegiatan: data.data[0]?.total_kegiatan || 0
+        };
+      } catch (error) {
+        console.error(`Error fetching data for ${location.initial_name}:`, error);
+        return {
+          location: location.initial_name,
+          total_kegiatan: 0
+        };
+      }
+    });
+
+    const locationData = await Promise.all(fetchPromises);
+
+    // Calculate total across all locations
+    const totalKegiatan = locationData.reduce((sum, item) => sum + item.total_kegiatan, 0);
+
+    if (process.env.DB_CONNECTION === 'pgsql') {
+      await connection.end();
+    } else {
+      await connection.end();
+    }
+
+    set.headers = { 'Content-Type': 'application/json' };
+    return { 
+      message: "Data retrieved successfully", 
+      code: 200, 
+      data: {
+        total_kegiatan: totalKegiatan,
+        details: locationData
+      }
+    };
+  })
   .use(cors(corsOptions))
   .listen(3008);
 
