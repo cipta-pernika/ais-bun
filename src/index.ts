@@ -146,7 +146,7 @@ const app = new Elysia()
       FROM ais_data_positions adp
       INNER JOIN ais_data_vessels adv ON adp.vessel_id = adv.id
       WHERE DATE(adp.created_at) = ?`;
-    
+
     let params = [queryDate];
 
     const [rows] = await executeQuery(connection, sql, params);
@@ -175,7 +175,7 @@ const app = new Elysia()
     const fetchPromises = locations.map(async (location: { initial_name: string }) => {
       try {
         const url = `https://bebun${location.initial_name.toLowerCase()}.cakrawala.id/api/getTotalKapalDaily${date ? `?date=${date}` : ''}`;
-        
+
         // Set a timeout for the fetch request
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
@@ -209,9 +209,9 @@ const app = new Elysia()
     }
 
     set.headers = { 'Content-Type': 'application/json' };
-    return { 
-      message: "Data retrieved successfully", 
-      code: 200, 
+    return {
+      message: "Data retrieved successfully",
+      code: 200,
       data: {
         total_kapal: totalKapal,
         details: locationData
@@ -225,15 +225,15 @@ const app = new Elysia()
     try {
       const frigateUrl = `https://frigatebau.pernika.net/api/review?reviewed=1&before=${before || ''}&after=${after || ''}`;
       const response = await fetch(frigateUrl);
-      
+
       // Check if the response is ok
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       // Get the response text first
       const text = await response.text();
-      
+
       // Try to parse the JSON, if it fails we'll have the text to debug
       let data;
       try {
@@ -254,7 +254,7 @@ const app = new Elysia()
     } catch (error) {
       console.error('Frigate API error:', error);
       set.status = 500;
-      return { 
+      return {
         message: "Error fetching data from Frigate API",
         code: 500,
         error: error instanceof Error ? error.message : String(error),
@@ -270,11 +270,11 @@ const app = new Elysia()
     try {
       const frigateUrl = `https://frigatebau.pernika.net/vod/static64/start/${start}/end/${end}/master.m3u8`;
       const response = await fetch(frigateUrl);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.text();
 
       if (process.env.DB_CONNECTION === 'pgsql') {
@@ -284,9 +284,9 @@ const app = new Elysia()
       }
 
       set.headers = { 'Content-Type': 'application/json' };
-      return { 
-        message: "Video data retrieved successfully", 
-        code: 200, 
+      return {
+        message: "Video data retrieved successfully",
+        code: 200,
         data: {
           url: frigateUrl,
           content: data
@@ -295,7 +295,7 @@ const app = new Elysia()
     } catch (error) {
       console.error('Frigate VOD API error:', error);
       set.status = 500;
-      return { 
+      return {
         message: "Error fetching video data from Frigate API",
         code: 500,
         error: error instanceof Error ? error.message : String(error),
@@ -319,11 +319,11 @@ const app = new Elysia()
     const queryDate = query.date || new Date().toISOString().split('T')[0];
 
     let sql = `
-      SELECT COUNT(DISTINCT gi.mmsi) as total_kegiatan
-      FROM geofence_images gi
-      INNER JOIN ais_data_vessels adv ON gi.mmsi = adv.mmsi
-      WHERE DATE(gi.created_at) = ?`;
-    
+    SELECT COUNT(gi.mmsi) as total_kegiatan
+    FROM geofence_images gi
+    INNER JOIN ais_data_vessels adv ON gi.mmsi = adv.mmsi
+    WHERE DATE(gi.created_at) = ?`;
+
     let params = [queryDate];
 
     const [rows] = await executeQuery(connection, sql, params);
@@ -379,9 +379,9 @@ const app = new Elysia()
     }
 
     set.headers = { 'Content-Type': 'application/json' };
-    return { 
-      message: "Data retrieved successfully", 
-      code: 200, 
+    return {
+      message: "Data retrieved successfully",
+      code: 200,
       data: {
         total_kegiatan: totalKegiatan,
         details: locationData
