@@ -142,9 +142,8 @@ const app = new Elysia()
     const queryDate = query.date || new Date().toISOString().split('T')[0];
 
     let sql = `
-      SELECT COUNT(DISTINCT adv.mmsi) as total_kapal
+      SELECT COUNT(DISTINCT adp.vessel_id) as total_kapal
       FROM ais_data_positions adp
-      INNER JOIN ais_data_vessels adv ON adp.vessel_id = adv.id
       WHERE DATE(adp.created_at) = ?`;
 
     let params = [queryDate];
