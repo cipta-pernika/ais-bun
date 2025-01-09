@@ -387,6 +387,24 @@ const app = new Elysia()
       }
     };
   })
+  .get('/api/syncasset', async ({ set }) => {
+    const connection = await createDbConnection();
+
+    const [rows] = await executeQuery(
+      connection,
+      'SELECT * FROM assets',
+      []
+    );
+
+    if (process.env.DB_CONNECTION === 'pgsql') {
+      await connection.end();
+    } else {
+      await connection.end();
+    }
+
+    set.headers = { 'Content-Type': 'application/json' };
+    return { message: "Data retrieved successfully", code: 200, data: rows };
+  })
   .use(cors(corsOptions))
   .listen(process.env.PORT || 3008);
 
