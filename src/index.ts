@@ -144,7 +144,7 @@ const app = new Elysia()
     let sql = `
       SELECT COUNT(DISTINCT adp.vessel_id) as total_kapal
       FROM ais_data_positions adp
-      WHERE DATE(adp.created_at) = ?`;
+      WHERE DATE(adp.timestamp) = ?`;
 
     let params = [queryDate];
 
@@ -321,7 +321,7 @@ const app = new Elysia()
     SELECT COUNT(gi.mmsi) as total_kegiatan
     FROM geofence_images gi
     INNER JOIN ais_data_vessels adv ON gi.mmsi = adv.mmsi
-    WHERE DATE(gi.created_at) = ?`;
+    WHERE DATE(gi.timestamp) = ?`;
 
     let params = [queryDate];
 
