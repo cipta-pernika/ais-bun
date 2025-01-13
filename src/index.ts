@@ -4,6 +4,7 @@ import { cors } from '@elysiajs/cors';
 import fetch from 'node-fetch';
 import { createDbConnection } from './dbConnection';
 import { moveCamera } from './cameraControl';
+import { createRedisClient } from './redisClient';
 
 dotenv.config();
 
@@ -138,8 +139,16 @@ const app = new Elysia()
   })
   .get('/api/getTotalKapalDaily', async ({ query, set }) => {
     const connection = await createDbConnection();
-    // Default to today's date if no date is provided
+    const redisClient = createRedisClient();
     const queryDate = query.date || new Date().toISOString().split('T')[0];
+    const cacheKey = `totalKapalDaily:${queryDate}`;
+
+    // Check cache first
+    const cachedData = await redisClient.get(cacheKey);
+    if (cachedData) {
+      set.headers = { 'Content-Type': 'application/json' };
+      return { message: "Data retrieved successfully", code: 200, data: JSON.parse(cachedData) };
+    }
 
     let sql = `
       SELECT COUNT(DISTINCT adp.vessel_id) as total_kapal
@@ -155,6 +164,9 @@ const app = new Elysia()
     } else {
       await connection.end();
     }
+
+    // Cache the result for 5 minutes
+    await redisClient.setex(cacheKey, 300, JSON.stringify(rows));
 
     set.headers = { 'Content-Type': 'application/json' };
     return { message: "Data retrieved successfully", code: 200, data: rows };
