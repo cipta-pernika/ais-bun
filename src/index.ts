@@ -165,8 +165,8 @@ const app = new Elysia()
       await connection.end();
     }
 
-    // Cache the result for 5 minutes
-    await redisClient.setex(cacheKey, 300, JSON.stringify(rows));
+    // Cache the result for 5 minutes using set with EX option
+    await redisClient.set(cacheKey, JSON.stringify(rows), { EX: 300 });
 
     set.headers = { 'Content-Type': 'application/json' };
     return { message: "Data retrieved successfully", code: 200, data: rows };
