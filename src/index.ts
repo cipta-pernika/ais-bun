@@ -64,7 +64,7 @@ const app = new Elysia()
   .get("/", async ({ query, set }) => {
     const connection = await createDbConnection();
     const redisClient = createRedisClient();
-    const { searchQuery, params } = handleQuery(query, 'mmsi');
+    const { searchQuery, params } = handleQuery(query, query.vessel_name ? 'vessel_name' : 'mmsi');
     const cacheKey = `vessels:${JSON.stringify(query)}`;
 
     const result = await cachedQuery(
