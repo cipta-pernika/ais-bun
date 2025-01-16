@@ -23,8 +23,8 @@ const handleQuery = (query: any, searchField: string) => {
   let params = [limit.toString(), offset.toString()];
 
   if (searchValue) {
-    searchQuery = `WHERE ${searchField} ${searchField === 'mmsi' ? '=' : 'LIKE'} ?`;
-    params.unshift(searchField === 'mmsi' ? searchValue : `%${searchValue}%`);
+    searchQuery = `WHERE ${searchField} ${searchField === 'mmsi' || searchField === 'vessel_name' ? '=' : 'LIKE'} ?`;
+    params.unshift(searchField === 'mmsi' || searchField === 'vessel_name' ? searchValue : `%${searchValue}%`);
   }
 
   return { searchQuery, params, limit, offset };
