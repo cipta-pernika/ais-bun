@@ -430,8 +430,8 @@ const app = new Elysia()
       []
     );
 
-    // Fetch data from each location
-    const fetchPromises = locations.map(async (location: { initial_name: string }) => {
+    // Fetch data from each location with a limit on concurrent requests
+    const fetchLocationData = async (location: { initial_name: string }) => {
       try {
         const url = `https://bebun${location.initial_name.toLowerCase()}.cakrawala.id/api/getTotalKegiatan${date ? `?date=${date}` : ''}`;
         const response = await fetch(url);
@@ -447,9 +447,16 @@ const app = new Elysia()
           total_kegiatan: 0
         };
       }
-    });
+    };
 
-    const locationData = await Promise.all(fetchPromises);
+    // Limit concurrent fetches to prevent overwhelming the server
+    const maxConcurrentRequests = 3;
+    const locationData = [];
+    for (let i = 0; i < locations.length; i += maxConcurrentRequests) {
+      const chunk = locations.slice(i, i + maxConcurrentRequests);
+      const results = await Promise.all(chunk.map(fetchLocationData));
+      locationData.push(...results);
+    }
 
     // Calculate total across all locations
     const totalKegiatan = locationData.reduce((sum, item) => sum + item.total_kegiatan, 0);
