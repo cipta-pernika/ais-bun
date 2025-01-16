@@ -397,16 +397,17 @@ const app = new Elysia()
   })
   .get('/api/getTotalKegiatan', async ({ query, set }) => {
     const connection = await createDbConnection();
-    // Default to today's date if no date is provided
-    const queryDate = query.date || new Date().toISOString().split('T')[0];
+    // Calculate start date as 3 days before the query date
+    const endDate = query.date || new Date().toISOString().split('T')[0];
+    const startDate = new Date(new Date(endDate).setDate(new Date(endDate).getDate() - 3)).toISOString().split('T')[0];
 
     let sql = `
     SELECT COUNT(gi.mmsi) as total_kegiatan
     FROM geofence_images gi
     INNER JOIN ais_data_vessels adv ON gi.mmsi = adv.mmsi
-    WHERE DATE(gi.timestamp) = ?`;
+    WHERE DATE(gi.timestamp) BETWEEN ? AND ?`;
 
-    let params = [queryDate];
+    let params = [startDate, endDate];
 
     const [rows] = await executeQuery(connection, sql, params);
 
