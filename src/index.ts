@@ -85,7 +85,7 @@ const app = new Elysia()
         const [rows] = await executeQuery(
           connection,
           `SELECT * FROM ais_data_vessels ${searchQuery} LIMIT ? OFFSET ?`,
-          [param, limit, offset]
+          mmsi ? [param, limit, offset] : [param, limit, offset]
         );
 
         if (process.env.DB_CONNECTION === 'pgsql') {
