@@ -64,19 +64,7 @@ const app = new Elysia()
   .get("/", async ({ query, set }) => {
     const connection = await createDbConnection();
     const redisClient = createRedisClient();
-    const { mmsi, vessel_name } = query;
-
-    if (mmsi && !/^\d{9}$/.test(mmsi)) {
-      set.status = 400;
-      return { error: 'Invalid MMSI format. Must be 9 digits.' };
-    }
-
-    const page = parseInt(query?.page || '1');
-    const limit = parseInt(query?.limit || '10');
-    const offset = (page - 1) * limit;
-
-    const searchQuery = mmsi ? 'WHERE mmsi = ?' : 'WHERE vessel_name LIKE ?';
-    const param = mmsi || `%${vessel_name}%`;
+    const { searchQuery, params } = handleQuery(query, 'mmsi');
     const cacheKey = `vessels:${JSON.stringify(query)}`;
 
     const result = await cachedQuery(
@@ -85,7 +73,7 @@ const app = new Elysia()
         const [rows] = await executeQuery(
           connection,
           `SELECT * FROM ais_data_vessels ${searchQuery} LIMIT ? OFFSET ?`,
-          mmsi ? [param, limit, offset] : [param, limit, offset]
+          params
         );
 
         if (process.env.DB_CONNECTION === 'pgsql') {
