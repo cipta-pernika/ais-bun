@@ -70,7 +70,9 @@ const app = new Elysia()
     // Add vessel_name to params
     const vesselName = query.vessel_name;
     if (vesselName) {
-      searchQuery += ' AND vessel_name LIKE ?';
+      // Ensure there's a WHERE clause before adding AND
+      searchQuery += searchQuery ? ' AND' : ' WHERE';
+      searchQuery += ' vessel_name LIKE ?';
       params.push(`%${vesselName}%`);
     }
 
