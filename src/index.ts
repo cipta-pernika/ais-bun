@@ -75,7 +75,7 @@ const app = new Elysia()
     const limit = parseInt(query?.limit || '10');
     const offset = (page - 1) * limit;
 
-    const searchQuery = mmsi ? 'WHERE adv.mmsi = ?' : 'WHERE adv.vessel_name LIKE ?';
+    const searchQuery = mmsi ? 'WHERE mmsi = ?' : 'WHERE vessel_name LIKE ?';
     const param = mmsi || `%${vessel_name}%`;
     const cacheKey = `vessels:${JSON.stringify(query)}`;
 
