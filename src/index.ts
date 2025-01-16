@@ -434,7 +434,14 @@ const app = new Elysia()
     const fetchLocationData = async (location: { initial_name: string }) => {
       try {
         const url = `https://bebun${location.initial_name.toLowerCase()}.cakrawala.id/api/getTotalKegiatan${date ? `?date=${date}` : ''}`;
-        const response = await fetch(url);
+
+        // Set a timeout for the fetch request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
+
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
         const data = await response.json();
         return {
           location: location.initial_name,
