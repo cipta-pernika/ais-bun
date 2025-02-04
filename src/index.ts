@@ -335,6 +335,7 @@ const app = new Elysia()
       set.headers = { 'Content-Type': 'application/json' };
       return { message: "Data retrieved successfully", code: 200, data };
     } catch (error) {
+      const urlFrigate = process.env.URL_FRIGATE;
       console.error('Frigate API error:', error);
       set.status = 500;
       return {
@@ -342,7 +343,7 @@ const app = new Elysia()
         code: 500,
         error: error instanceof Error ? error.message : String(error),
         // Include the URL that failed (without sensitive data if any)
-        url: 'frigatebau.pernika.net/api/review'
+        url: `${urlFrigate}/api/review`
       };
     }
   })
@@ -351,7 +352,9 @@ const app = new Elysia()
     const { start, end } = query;
 
     try {
-      const frigateUrl = `https://frigatebau.pernika.net/vod/static64/start/${start}/end/${end}/master.m3u8`;
+        
+      const urlFrigate = process.env.URL_FRIGATE;
+      const frigateUrl = `${urlFrigate}/vod/static64/start/${start}/end/${end}/master.m3u8`;
       const response = await fetch(frigateUrl);
 
       if (!response.ok) {
@@ -376,13 +379,14 @@ const app = new Elysia()
         }
       };
     } catch (error) {
+      const urlFrigate = process.env.URL_FRIGATE;
       console.error('Frigate VOD API error:', error);
       set.status = 500;
       return {
         message: "Error fetching video data from Frigate API",
         code: 500,
         error: error instanceof Error ? error.message : String(error),
-        url: 'frigatebau.pernika.net/vod'
+        url: `${urlFrigate}/vod`
       };
     }
   })
