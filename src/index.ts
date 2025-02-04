@@ -354,7 +354,8 @@ const app = new Elysia()
     try {
         
       const urlFrigate = process.env.URL_FRIGATE;
-      const frigateUrl = `${urlFrigate}/vod/static64/start/${start}/end/${end}/master.m3u8`;
+      const camName = process.env.CAM_NAME;
+      const frigateUrl = `${urlFrigate}/vod/${camName}/start/${start}/end/${end}/master.m3u8`;
       const response = await fetch(frigateUrl);
 
       if (!response.ok) {
@@ -380,13 +381,14 @@ const app = new Elysia()
       };
     } catch (error) {
       const urlFrigate = process.env.URL_FRIGATE;
+      const camName = process.env.CAM_NAME;
       console.error('Frigate VOD API error:', error);
       set.status = 500;
       return {
         message: "Error fetching video data from Frigate API",
         code: 500,
         error: error instanceof Error ? error.message : String(error),
-        url: `${urlFrigate}/vod`
+        url: `${urlFrigate}/vod/${camName}`
       };
     }
   })
