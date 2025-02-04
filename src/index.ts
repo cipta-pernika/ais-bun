@@ -4,6 +4,7 @@ import { cors } from '@elysiajs/cors';
 import fetch from 'node-fetch';
 import { createDbConnection } from './dbConnection';
 import { moveCamera } from './cameraControl';
+import { createRedisClient } from './redisClient';
 
 dotenv.config();
 
@@ -22,8 +23,8 @@ const handleQuery = (query: any, searchField: string) => {
   let params = [limit.toString(), offset.toString()];
 
   if (searchValue) {
-    searchQuery = `WHERE ${searchField} ${searchField === 'mmsi' ? '=' : 'LIKE'} ?`;
-    params.unshift(searchField === 'mmsi' ? searchValue : `%${searchValue}%`);
+    searchQuery = `WHERE ${searchField} ${searchField === 'mmsi' || searchField === 'vessel_name' ? '=' : 'LIKE'} ?`;
+    params.unshift(searchField === 'mmsi' || searchField === 'vessel_name' ? searchValue : `%${searchValue}%`);
   }
 
   return { searchQuery, params, limit, offset };
@@ -42,159 +43,235 @@ const executeQuery = async (connection: any, sql: string, params: any[]) => {
   }
 };
 
+// Create a helper function for caching
+const cachedQuery = async (cacheKey: string, queryFn: () => Promise<any>, redisClient: any, cacheDuration: number = 300) => {
+  // Check cache first
+  const cachedData = await redisClient.get(cacheKey);
+  if (cachedData) {
+    return JSON.parse(cachedData);
+  }
+
+  // Execute query if not in cache
+  const result = await queryFn();
+
+  // Cache the result
+  await redisClient.set(cacheKey, JSON.stringify(result), { EX: cacheDuration });
+
+  return result;
+};
+
 const app = new Elysia()
   .get("/", async ({ query, set }) => {
     const connection = await createDbConnection();
-    const { searchQuery, params } = handleQuery(query, 'mmsi');
+    const redisClient = createRedisClient();
+    const { searchQuery, params } = handleQuery(query, query.vessel_name ? 'vessel_name' : 'mmsi');
+    const cacheKey = `vessels:${JSON.stringify(query)}`;
 
-    const [rows] = await executeQuery(
-      connection,
-      `SELECT * FROM ais_data_vessels ${searchQuery} LIMIT ? OFFSET ?`,
-      params
+    const result = await cachedQuery(
+      cacheKey,
+      async () => {
+        const [rows] = await executeQuery(
+          connection,
+          `SELECT * FROM ais_data_vessels ${searchQuery} LIMIT ? OFFSET ?`,
+          params
+        );
+
+        if (process.env.DB_CONNECTION === 'pgsql') {
+          await connection.end();
+        } else {
+          await connection.end();
+        }
+
+        return { message: "Data retrieved successfully", code: 200, data: rows };
+      },
+      redisClient
     );
 
-    if (process.env.DB_CONNECTION === 'pgsql') {
-      await connection.end();
-    } else {
-      await connection.end();
-    }
-
     set.headers = { 'Content-Type': 'application/json' };
-    return { message: "Data retrieved successfully", code: 200, data: rows };
+    return result;
   })
   .get('/api/aisdataposition', async ({ query, set }) => {
     const connection = await createDbConnection();
+    const redisClient = createRedisClient();
     const { searchQuery, params } = handleQuery(query, 'mmsi');
+    const cacheKey = `vessel_positions:${JSON.stringify(query)}`;
 
-    const [rows] = await executeQuery(
-      connection,
-      `SELECT *
-       FROM recent_vessels_positions
-       ${searchQuery}
-       ORDER BY created_at DESC
-       LIMIT ? OFFSET ?`,
-      params
+    const result = await cachedQuery(
+      cacheKey,
+      async () => {
+        const [rows] = await executeQuery(
+          connection,
+          `SELECT *
+           FROM recent_vessels_positions
+           ${searchQuery}
+           ORDER BY created_at DESC
+           LIMIT ? OFFSET ?`,
+          params
+        );
+
+        if (process.env.DB_CONNECTION === 'pgsql') {
+          await connection.end();
+        } else {
+          await connection.end();
+        }
+
+        return { message: "Data retrieved successfully", code: 200, data: rows };
+      },
+      redisClient
     );
 
-    if (process.env.DB_CONNECTION === 'pgsql') {
-      await connection.end();
-    } else {
-      await connection.end();
-    }
-
     set.headers = { 'Content-Type': 'application/json' };
-    return { message: "Data retrieved successfully", code: 200, data: rows };
+    return result;
   })
   .get('/api/tersus', async ({ query, set }) => {
     const connection = await createDbConnection();
+    const redisClient = createRedisClient();
     const { name } = query;
+    const cacheKey = `terminals:${name || 'all'}`;
 
-    let sql = 'SELECT * FROM terminals';
-    let params = [];
+    const result = await cachedQuery(
+      cacheKey,
+      async () => {
+        let sql = 'SELECT * FROM terminals';
+        let params = [];
 
-    if (name) {
-      sql += ' WHERE name LIKE ?';
-      params.push(`%${name}%`);
-    }
+        if (name) {
+          sql += ' WHERE name LIKE ?';
+          params.push(`%${name}%`);
+        }
 
-    const [rows] = await executeQuery(connection, sql, params);
+        const [rows] = await executeQuery(connection, sql, params);
 
-    if (process.env.DB_CONNECTION === 'pgsql') {
-      await connection.end();
-    } else {
-      await connection.end();
-    }
+        if (process.env.DB_CONNECTION === 'pgsql') {
+          await connection.end();
+        } else {
+          await connection.end();
+        }
+
+        return { message: "Data retrieved successfully", code: 200, data: rows };
+      },
+      redisClient
+    );
 
     set.headers = { 'Content-Type': 'application/json' };
-    return { message: "Data retrieved successfully", code: 200, data: rows };
+    return result;
   })
   .get('/api/cctvs', async ({ query, set }) => {
     const connection = await createDbConnection();
+    const redisClient = createRedisClient();
     const { terminal_id } = query;
+    const cacheKey = `cctvs:${terminal_id || 'all'}`;
 
-    let sql = 'SELECT * FROM cctvs';
-    let params = [];
+    const result = await cachedQuery(
+      cacheKey,
+      async () => {
+        let sql = 'SELECT * FROM cctvs';
+        let params = [];
 
-    if (terminal_id) {
-      const ids = terminal_id.split(',').map(id => parseInt(id.trim()));
-      if (process.env.DB_CONNECTION === 'pgsql') {
-        sql += ' WHERE terminal_id = ANY($1::int[])';
-      } else {
-        sql += ' WHERE terminal_id IN (?)';
-      }
-      params.push(ids);
-    }
+        if (terminal_id) {
+          const ids = terminal_id.split(',').map(id => parseInt(id.trim()));
+          if (process.env.DB_CONNECTION === 'pgsql') {
+            sql += ' WHERE terminal_id = ANY($1::int[])';
+          } else {
+            sql += ' WHERE terminal_id IN (?)';
+          }
+          params.push(ids);
+        }
 
-    const [rows] = await executeQuery(connection, sql, params);
+        const [rows] = await executeQuery(connection, sql, params);
 
-    if (process.env.DB_CONNECTION === 'pgsql') {
-      await connection.end();
-    } else {
-      await connection.end();
-    }
+        if (process.env.DB_CONNECTION === 'pgsql') {
+          await connection.end();
+        } else {
+          await connection.end();
+        }
+
+        return { message: "Data retrieved successfully", code: 200, data: rows };
+      },
+      redisClient
+    );
 
     set.headers = { 'Content-Type': 'application/json' };
-    return { message: "Data retrieved successfully", code: 200, data: rows };
+    return result;
   })
   .get('/api/getTotalKapalDaily', async ({ query, set }) => {
     const connection = await createDbConnection();
-    // Default to today's date if no date is provided
+    const redisClient = createRedisClient();
     const queryDate = query.date || new Date().toISOString().split('T')[0];
+    const cacheKey = `totalKapalDaily:${queryDate}`;
+
+    // Check cache first
+    const cachedData = await redisClient.get(cacheKey);
+    if (cachedData) {
+        set.headers = { 'Content-Type': 'application/json' };
+        return { message: "Data retrieved successfully", code: 200, data: JSON.parse(cachedData) };
+    }
 
     let sql = `
-      SELECT COUNT(DISTINCT adv.mmsi) as total_kapal
+      SELECT COUNT(DISTINCT adp.vessel_id) as total_kapal
       FROM ais_data_positions adp
-      INNER JOIN ais_data_vessels adv ON adp.vessel_id = adv.id
-      WHERE DATE(adp.created_at) = ?`;
+      WHERE DATE(adp.timestamp) = ?`;
 
     let params = [queryDate];
 
     const [rows] = await executeQuery(connection, sql, params);
 
     if (process.env.DB_CONNECTION === 'pgsql') {
-      await connection.end();
+        await connection.end();
     } else {
-      await connection.end();
+        await connection.end();
     }
+
+    // Cache the result for 5 minutes using set with EX option
+    await redisClient.set(cacheKey, JSON.stringify(rows), { EX: 300 });
 
     set.headers = { 'Content-Type': 'application/json' };
     return { message: "Data retrieved successfully", code: 200, data: rows };
   })
   .get('/api/summaryTotalKapal', async ({ query, set }) => {
     const connection = await createDbConnection();
+    const redisClient = createRedisClient();
     const { date } = query;
+    const cacheKey = `summaryTotalKapal:${date || 'default'}`;
+
+    // Check cache first
+    const cachedData = await redisClient.get(cacheKey);
+    if (cachedData) {
+        set.headers = { 'Content-Type': 'application/json' };
+        return JSON.parse(cachedData);
+    }
 
     // Get all locations
     const [locations] = await executeQuery(
-      connection,
-      'SELECT initial_name FROM locations',
-      []
+        connection,
+        'SELECT initial_name FROM locations',
+        []
     );
 
     // Fetch data from each location with timeout
     const fetchPromises = locations.map(async (location: { initial_name: string }) => {
-      try {
-        const url = `https://bebun${location.initial_name.toLowerCase()}.cakrawala.id/api/getTotalKapalDaily${date ? `?date=${date}` : ''}`;
+        try {
+            const url = `https://bebun${location.initial_name.toLowerCase()}.cakrawala.id/api/getTotalKapalDaily${date ? `?date=${date}` : ''}`;
 
-        // Set a timeout for the fetch request
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
+            // Set a timeout for the fetch request
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
 
-        const response = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
+            const response = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeoutId);
 
-        const data = await response.json();
-        return {
-          location: location.initial_name,
-          total_kapal: data.data[0]?.total_kapal || 0
-        };
-      } catch (error) {
-        console.error(`Error fetching data for ${location.initial_name}:`, error);
-        return {
-          location: location.initial_name,
-          total_kapal: 0
-        };
-      }
+            const data = await response.json();
+            return {
+                location: location.initial_name,
+                total_kapal: data.data[0]?.total_kapal || 0
+            };
+        } catch (error) {
+            console.error(`Error fetching data for ${location.initial_name}:`, error);
+            return {
+                location: location.initial_name,
+                total_kapal: 0
+            };
+        }
     });
 
     const locationData = await Promise.all(fetchPromises);
@@ -203,20 +280,25 @@ const app = new Elysia()
     const totalKapal = locationData.reduce((sum, item) => sum + item.total_kapal, 0);
 
     if (process.env.DB_CONNECTION === 'pgsql') {
-      await connection.end();
+        await connection.end();
     } else {
-      await connection.end();
+        await connection.end();
     }
 
-    set.headers = { 'Content-Type': 'application/json' };
-    return {
-      message: "Data retrieved successfully",
-      code: 200,
-      data: {
-        total_kapal: totalKapal,
-        details: locationData
-      }
+    const result = {
+        message: "Data retrieved successfully",
+        code: 200,
+        data: {
+            total_kapal: totalKapal,
+            details: locationData
+        }
     };
+
+    // Cache the result for 5 minutes using set with EX option
+    await redisClient.set(cacheKey, JSON.stringify(result), { EX: 300 });
+
+    set.headers = { 'Content-Type': 'application/json' };
+    return result;
   })
   .get('/api/frigate', async ({ query, set }) => {
     const connection = await createDbConnection();
@@ -316,16 +398,17 @@ const app = new Elysia()
   })
   .get('/api/getTotalKegiatan', async ({ query, set }) => {
     const connection = await createDbConnection();
-    // Default to today's date if no date is provided
-    const queryDate = query.date || new Date().toISOString().split('T')[0];
+    // Calculate start date as 3 days before the query date
+    const endDate = query.date || new Date().toISOString().split('T')[0];
+    const startDate = new Date(new Date(endDate).setDate(new Date(endDate).getDate() - 3)).toISOString().split('T')[0];
 
     let sql = `
     SELECT COUNT(gi.mmsi) as total_kegiatan
     FROM geofence_images gi
     INNER JOIN ais_data_vessels adv ON gi.mmsi = adv.mmsi
-    WHERE DATE(gi.created_at) = ?`;
+    WHERE DATE(gi.timestamp) BETWEEN ? AND ?`;
 
-    let params = [queryDate];
+    let params = [startDate, endDate];
 
     const [rows] = await executeQuery(connection, sql, params);
 
@@ -349,11 +432,18 @@ const app = new Elysia()
       []
     );
 
-    // Fetch data from each location
-    const fetchPromises = locations.map(async (location: { initial_name: string }) => {
+    // Fetch data from each location with a limit on concurrent requests
+    const fetchLocationData = async (location: { initial_name: string }) => {
       try {
         const url = `https://bebun${location.initial_name.toLowerCase()}.cakrawala.id/api/getTotalKegiatan${date ? `?date=${date}` : ''}`;
-        const response = await fetch(url);
+
+        // Set a timeout for the fetch request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
+
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
         const data = await response.json();
         return {
           location: location.initial_name,
@@ -366,9 +456,16 @@ const app = new Elysia()
           total_kegiatan: 0
         };
       }
-    });
+    };
 
-    const locationData = await Promise.all(fetchPromises);
+    // Limit concurrent fetches to prevent overwhelming the server
+    const maxConcurrentRequests = 3;
+    const locationData = [];
+    for (let i = 0; i < locations.length; i += maxConcurrentRequests) {
+      const chunk = locations.slice(i, i + maxConcurrentRequests);
+      const results = await Promise.all(chunk.map(fetchLocationData));
+      locationData.push(...results);
+    }
 
     // Calculate total across all locations
     const totalKegiatan = locationData.reduce((sum, item) => sum + item.total_kegiatan, 0);
@@ -388,6 +485,24 @@ const app = new Elysia()
         details: locationData
       }
     };
+  })
+  .get('/api/syncasset', async ({ set }) => {
+    const connection = await createDbConnection();
+
+    const [rows] = await executeQuery(
+      connection,
+      'SELECT * FROM assets',
+      []
+    );
+
+    if (process.env.DB_CONNECTION === 'pgsql') {
+      await connection.end();
+    } else {
+      await connection.end();
+    }
+
+    set.headers = { 'Content-Type': 'application/json' };
+    return { message: "Data retrieved successfully", code: 200, data: rows };
   })
   .use(cors(corsOptions))
   .listen(process.env.PORT || 3008);
