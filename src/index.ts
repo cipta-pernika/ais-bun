@@ -223,7 +223,8 @@ const app = new Elysia()
     const { before, after } = query;
 
     try {
-      const frigateUrl = `https://frigatebau.pernika.net/api/review?reviewed=1&before=${before || ''}&after=${after || ''}`;
+      const urlFrigate = process.env.URL_FRIGATE;
+      const frigateUrl = `${urlFrigate}/api/review?reviewed=1&before=${before || ''}&after=${after || ''}`;
       const response = await fetch(frigateUrl);
 
       // Check if the response is ok
