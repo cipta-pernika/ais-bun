@@ -427,7 +427,17 @@ const app = new Elysia()
   })
   .get('/api/summaryTotalKegiatan', async ({ query, set }) => {
     const connection = await createDbConnection();
+    const redisClient = createRedisClient();
     const { date } = query;
+
+    const cacheKey = `summaryTotalKegiatan:${date || 'default'}`;
+
+    // Check cache first
+    const cachedData = await redisClient.get(cacheKey);
+    if (cachedData) {
+        set.headers = { 'Content-Type': 'application/json' };
+        return JSON.parse(cachedData);
+    }
 
     // Get all locations
     const [locations] = await executeQuery(
@@ -479,6 +489,16 @@ const app = new Elysia()
     } else {
       await connection.end();
     }
+
+    // Cache the result for 5 minutes using set with EX option
+    await redisClient.set(cacheKey, JSON.stringify({
+      message: "Data retrieved successfully",
+      code: 200,
+      data: {
+        total_kegiatan: totalKegiatan,
+        details: locationData
+      }
+    }), { EX: 300 });
 
     set.headers = { 'Content-Type': 'application/json' };
     return {
