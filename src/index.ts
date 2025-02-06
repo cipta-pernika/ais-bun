@@ -241,12 +241,20 @@ const app = new Elysia()
         return JSON.parse(cachedData);
     }
 
-    // Get all locations
+    // Check cache first
+    const cachedLocations = await redisClient.get('locations');
+    if (cachedLocations) {
+        return JSON.parse(cachedLocations);
+    }
+
     const [locations] = await executeQuery(
         connection,
         'SELECT initial_name FROM locations',
         []
     );
+
+    // Cache the result for 5 minutes using set with EX option
+    await redisClient.set('locations', JSON.stringify(locations), { EX: 300 });
 
     // Fetch data from each location with timeout
     const fetchPromises = locations.map(async (location: { initial_name: string }) => {
