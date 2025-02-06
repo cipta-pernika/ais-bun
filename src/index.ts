@@ -404,9 +404,19 @@ const app = new Elysia()
   })
   .get('/api/getTotalKegiatan', async ({ query, set }) => {
     const connection = await createDbConnection();
+    const redisClient = createRedisClient();
     // Calculate start date as 3 days before the query date
     const endDate = query.date || new Date().toISOString().split('T')[0];
     const startDate = new Date(new Date(endDate).setDate(new Date(endDate).getDate() - 3)).toISOString().split('T')[0];
+
+    const cacheKey = `totalKegiatan:${startDate}:${endDate}`;
+
+    // Check cache first
+    const cachedData = await redisClient.get(cacheKey);
+    if (cachedData) {
+        set.headers = { 'Content-Type': 'application/json' };
+        return JSON.parse(cachedData);
+    }
 
     let sql = `
     SELECT COUNT(gi.mmsi) as total_kegiatan
@@ -423,6 +433,9 @@ const app = new Elysia()
     } else {
       await connection.end();
     }
+
+    // Cache the result for 5 minutes using set with EX option
+    await redisClient.set(cacheKey, JSON.stringify(rows), { EX: 300 });
 
     set.headers = { 'Content-Type': 'application/json' };
     return { message: "Data retrieved successfully", code: 200, data: rows };
